@@ -163,7 +163,7 @@ fn subcommand_example() {
     #[argh(subcommand)]
     enum MySubCommandEnum {
         One(SubCommandOne),
-        Two(SubCommandTwo),
+        Two(Box<SubCommandTwo>),
     }
 
     #[derive(FromArgs, PartialEq, Debug)]
@@ -185,10 +185,13 @@ fn subcommand_example() {
     }
 
     let one = TopLevel::from_args(&["cmdname"], &["one", "--x", "2"]).expect("sc 1");
-    assert_eq!(one, TopLevel { nested: MySubCommandEnum::One(SubCommandOne { x: 2 }) },);
+    assert_eq!(one, TopLevel { nested: MySubCommandEnum::One(SubCommandOne { x: 2 }) });
 
     let two = TopLevel::from_args(&["cmdname"], &["two", "--fooey"]).expect("sc 2");
-    assert_eq!(two, TopLevel { nested: MySubCommandEnum::Two(SubCommandTwo { fooey: true }) },);
+    assert_eq!(
+        two,
+        TopLevel { nested: MySubCommandEnum::Two(Box::new(SubCommandTwo { fooey: true })) }
+    );
 }
 
 #[test]
@@ -201,9 +204,9 @@ fn dynamic_subcommand_example() {
     impl argh::DynamicSubCommand for DynamicSubCommandImpl {
         fn commands() -> &'static [&'static argh::CommandInfo] {
             &[
-                &argh::CommandInfo { name: "three", description: "Third command" },
-                &argh::CommandInfo { name: "four", description: "Fourth command" },
-                &argh::CommandInfo { name: "five", description: "Fifth command" },
+                &argh::CommandInfo { name: "three", short: &'\0', description: "Third command" },
+                &argh::CommandInfo { name: "four", short: &'\0', description: "Fourth command" },
+                &argh::CommandInfo { name: "five", short: &'\0', description: "Fifth command" },
             ]
         }
 
@@ -1018,9 +1021,9 @@ mod fuchsia_commandline_tools_rubric {
 
         let e = OneOption::from_args(&["cmdname"], &["--foo=bar"])
             .expect_err("Parsing option value using `=` should fail");
-        #[cfg(feature = "rust-fuzzy-search")]
+        #[cfg(feature = "fuzzy_search")]
         assert_eq!(e.output, "Unrecognized argument: \"--foo=bar\". Did you mean \"--foo\"?\n");
-        #[cfg(not(feature = "rust-fuzzy-search"))]
+        #[cfg(not(feature = "fuzzy_search"))]
         assert_eq!(e.output, "Unrecognized argument: --foo=bar\n");
         assert!(e.status.is_err());
     }
@@ -1280,7 +1283,11 @@ Options:
 
     impl argh::DynamicSubCommand for HelpExamplePlugin {
         fn commands() -> &'static [&'static argh::CommandInfo] {
-            &[&argh::CommandInfo { name: "plugin", description: "Example dynamic command" }]
+            &[&argh::CommandInfo {
+                name: "plugin",
+                short: &'\0',
+                description: "Example dynamic command",
+            }]
         }
 
         fn try_redact_arg_values(
@@ -1848,6 +1855,7 @@ fn subcommand_does_not_panic() {
     #[argh(subcommand)]
     enum SubCommandEnum {
         Cmd(SubCommand),
+        CmdTwo(SubCommandTwo),
     }
 
     #[derive(FromArgs, PartialEq, Debug)]
